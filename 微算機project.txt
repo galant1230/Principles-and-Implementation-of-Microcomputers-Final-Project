@@ -1,0 +1,384 @@
+#include "pch.h"//大型程式碼的編寫標頭檔
+#include <iostream>
+#include<fstream>
+#include <string.h>
+#include <string>
+#include <algorithm>
+#include <exception>//處理例外情況
+using namespace std;
+#pragma warning(disable : 4996)
+void DEC(string &save0);
+void XRL(string &save0);
+void MOV(string &save0, string &save1);
+void NOP(string &save);
+void DJNZ(string &save0, string &save1);
+void LJMP(string &save0);
+int ORG(string &save0);
+void save_offsetAddress_and_countoffset(string save[], int count);
+
+
+
+#define SIZE 100
+char line[SIZE];
+int offsetAddress[20] = { 0 },countoffset=0, PC0=0,PC = 0;// PC記錄程式記憶體位置
+string offsetname[20] = { "" };		//offset的名子
+fstream fin, fout;
+int main()
+{
+	const char* delim = " ,\t";               //(分類)切割String
+	string save[100];
+	char *p;
+	int count = 0;	//count分類string   PC記錄程式記憶體位置
+	fin.open("蔡嘉倫.txt", ios::in);
+	fout.open("蔡嘉倫out.txt", ios::out);
+
+	while (fin.getline(line, sizeof(line), '\n')) {
+		z = strtok(line, delim);
+		while (z) {
+			save[count] = z;		
+			z = strtok(NULL, delim);//從第二個字串開始分割
+			count++;
+		}
+	}
+	save_offsetAddress_and_countoffset(save,count);
+
+	if (save[0].compare("ORG") == 0)
+        {
+		PC = ORG(save[1]);
+	}
+
+	for ( int i = 0; i < count; i++) {
+		transform(save[i].begin(), save[i].end(), save[i].begin(), toupper); //轉大寫	
+				
+		/*if (save[i].compare("ORG") == 0) {
+
+			PC=ORG(save[i + 1]);
+			i++;		
+		}*/
+		//int len = 0, count2 = 0;
+		//while (save[i][count2++])	//算save[i]的長度
+		//{
+		//	++len;
+		//}
+
+		//if (save[i][len-1]==':') {	
+
+		//	for (int a = 0; a < len - 1; a++)//去掉:
+		//	{
+		//		offsetname[countoffset] += save[i][a];
+		//	}			
+		//	offsetAddress[countoffset] = PC;
+
+		//	countoffset++;
+		//}
+		if (save[i].compare("MOV") == 0) {
+			
+			MOV( save[i + 1], save[i + 2]);
+			i = i + 2;
+			PC = PC + 2;
+			
+		}
+		if (save[i].compare("NOP") == 0) {
+			NOP(save[i]);			
+			PC = PC + 1;
+		}
+		if (save[i].compare("DEC") == 0)
+		{
+			DEC(save[i + 1]);
+			i++;
+			PC = PC + 1;
+		}
+		if (save[i].compare("XRL") == 0)
+		{
+			XRL(save[i+2]);
+			i =i +2;
+			PC = PC + 1;
+		}
+		if (save[i].compare("DJNZ") == 0) 
+		{
+			DJNZ(save[i + 1], save[i + 2]);
+			i = i + 2;			
+			PC = PC + 3;
+		}
+		
+		if (save[i].compare("LJMP") == 0)
+		{		
+			LJMP(save[i + 1]);
+			PC = PC + 3;
+			i ++;
+		}
+	}
+
+	//cout << "        " <<  offsetname[0] << "   "  << offsetname[1] << "   ";
+	fin.close();
+	fout.close();
+}
+
+
+void LJMP(string &save0)//找尋label位置
+{
+
+
+	int addr16 = 0;//LJMP的operation
+
+	for (int i = 0; i < countoffset; i++) {
+		if (save0 == offsetname[i]) {
+			addr16 = offsetAddress[i];
+		}
+	}	
+	char ff[8] = { 0 };
+	sprintf(ff, "%X", addr16); //轉16進位
+	cout << "02" << " " <<ff[0]<< ff[1] <<" "<< ff[2]<<ff[3]<<" ";//1.mechine code，2.pc值
+	fout << "02" << " " << ff[0] << ff[1] << " " << ff[2] << ff[3] << " ";
+	
+}
+int ORG(string &save0) {
+
+	int len0 = 0, count0 = 0;
+	while (save0[count0++])	//算save0的長度
+	{
+		++len0;
+	}
+	string q = "";
+	for (int a = 0; a < len0; a++)//去掉(a=0)H Direct
+	{
+		q += save0[a];
+	}
+	save0 = q;
+
+	int a=atoi(&save0[0]),b= atoi(&save0[0]),c=0,sum=0;   //16轉十進位 a位數、b是餘數 ,sum是十進位
+
+	for (int i = 1; i < 5; i++) {
+
+		c = pow(10, 4 - i);
+		a = a /c;
+		sum =sum+ a * pow(16,4-i);	
+		a = b % c;
+		
+	}
+	return sum;
+}
+void DEC(string &save0) {
+
+	int R = 24, N = 0;
+	char ff[8] = { 0 };
+	N = atoi(&save0[1]);
+	R = R + N;
+	sprintf(ff, "%X", R); //轉16進位
+
+	cout << ff << " " ;
+	fout << ff << " ";
+}
+
+void XRL(string &save0) {
+
+
+	int R = 104, N = 0;				//判斷	XRL A, Rn
+	char ff[8] = { 0 };
+	N = atoi(&save0[1]);
+	R = R + N;
+	sprintf(ff, "%X", R); //轉16進位
+
+	cout << ff << " ";
+	fout << ff << " ";
+
+}
+
+void DJNZ(string &save0, string &save1) {
+
+
+	int len0 = 0, count0 = 0, Addressdifference=0,offset=0;
+	while (save0[count0++])	//算save0的長度
+	{
+		++len0;
+	}
+	string q = "";
+	for (int a = 0; a < len0 - 1; a++)//去掉(a=0)H Direct
+	{
+		q += save0[a];
+	}
+	save0 = q;
+
+	int len1 = 0, count1 = 0;
+	while (save1[count1++])	//算save0的長度
+	{
+		++len1;
+	}
+	string w = "";
+	for (int a = 0; a < len1 ; a++)//去掉:
+	{
+		w += save1[a];
+	}
+	save1 = w;
+	for (int i = 0; i < countoffset; i++) {
+
+		//cout << " offsetname[0]=       "<< offsetname[0] << "   offsetname[1]=   " << offsetname[1] <<"   offsetAddress[0]=  "<< offsetAddress[0] <<"  offsetAddress[1]=  "<< offsetAddress[1];
+		if (save1 == offsetname[i]) {
+
+
+			if (PC > offsetAddress[i]) {       //反向跳
+				Addressdifference = PC + 2 - offsetAddress[i];
+				offset = 255 - Addressdifference;
+				
+			}
+			if (PC < offsetAddress[i]) {       //正向跳
+				offset = offsetAddress[i] - PC - 3;
+		
+			}
+		}
+	}
+	char ff[20] = { 0 };
+	sprintf(ff, "%X", offset); //轉16進位
+
+
+	cout << "D5" << " " << save0 << " ";
+	fout << "D5" << " " << save0 << " ";
+	
+	int a = 0;
+	a = offset % 256;
+	if ((a / 16) == 0) {
+		cout <<"0";
+		fout << "0";
+	}
+	cout<< ff << " ";
+	fout << ff << " ";
+}
+
+
+
+
+void MOV( string &save0, string &save1) {
+	
+	int len0 = 0, count0 = 0;
+	while (save0[count0++])	//算save0的長度
+	{
+		++len0;
+	}
+
+	int len1 = 0, count1 = 0;
+	while (save1[count1++])	//算save0的長度
+	{
+		++len1;
+	}
+	if (save0.compare("A") == 0) {
+		if (save1[0] == '#')     //判斷MOV A, #immediatet
+		{
+			int Fimmediate = 1;
+			if (save1[1]=='0')
+			{
+				Fimmediate++;
+			}
+
+			string q = "";
+			for (int a = Fimmediate; a < len1-1; a++)  //去掉#(a=1)和H
+			{
+
+				q += save1[a];
+			}
+			save1 = q;
+
+			cout << "74" << " " << save1 << " ";
+			fout << "74" << " " << save1 << " ";
+		}
+		else {							//判斷MOV A,direct
+			string q = "";
+			for (int a = 0; a < len1 - 1; a++)//去掉(a=0)H
+			{
+				q += save1[a];
+			}
+			save1 = q;
+
+			cout << "E5" << " " << save1 << " ";
+			fout << "E5" << " " << save1 << " ";
+		}
+	}
+		if (save0[len0-1] == 'H')				//判斷MOV direct,A
+		{
+			string q = "";
+			for (int a = 0; a < len0 - 1; a++)//去掉(a=0)H
+			{
+				q += save0[a];
+			}
+			save0 = q;
+
+			cout << "F5" << " " << save0 << " ";
+			fout << "F5" << " " << save0 << " ";
+		}
+	if (save0[0] == 'R') {
+		int R = 168, N = 0;				//判斷MOV Rn, direct
+		char ff[8] = { 0 };
+		N = atoi(&save0[1]);
+		R = R + N;
+		sprintf(ff, "%X", R); //轉16進位
+
+		string q = "";
+		for (int a = 0; a < len1 - 1; a++)//去掉(a=0)H
+		{
+			q += save1[a];
+		}
+		save1 = q;
+
+		cout << ff << " " << save1 << " ";
+		fout << ff << " " << save1 << " ";
+	}
+}
+void NOP(string &save) {	
+	cout << "00" << " ";
+	fout << "00" << " ";
+}
+void save_offsetAddress_and_countoffset(string save[],int count) {
+
+	if (save[0].compare("ORG") == 0 ) {
+		PC0 = ORG(save[ 1]);
+	}
+
+	for (int i = 0; i < count; i++) {
+		transform(save[i].begin(), save[i].end(), save[i].begin(), toupper); //轉大寫	
+
+		if (save[i].compare("MOV") == 0) {
+			PC0 = PC0 + 2;
+			
+			i = i + 2;
+		}
+		if (save[i].compare("NOP") == 0) {
+			PC0 = PC0 + 1;
+			
+		}
+		if (save[i].compare("DEC") == 0) {
+			PC0 = PC0 + 1;
+			i++;
+		}
+		if (save[i].compare("XRL") == 0) {
+			PC0 = PC0 + 1;
+			i = i + 2;
+		}
+		if (save[i].compare("DJNZ") == 0) {
+			
+			PC0 = PC0 + 3;
+
+			i = i + 2;
+		}
+		if (save[i].compare("LJMP") == 0)
+		{
+			/*cout << "LJMP==  " << PC0<<"    ";*/
+			PC0 = PC0 + 3;
+			i++;
+		}
+
+		int len = 0, count2 = 0;
+		while (save[i][count2++])	//算save[i]的長度
+		{
+			++len;
+		}
+
+		if (save[i][len - 1] == ':') {
+
+			for (int a = 0; a < len - 1; a++)//去掉:
+			{
+				offsetname[countoffset] += save[i][a];
+			}
+			offsetAddress[countoffset] = PC0;
+			countoffset++;
+		}
+	}
+}
